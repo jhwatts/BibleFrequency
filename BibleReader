@@ -1,0 +1,49 @@
+######################################################## Find and Read All Files In a Directory and Include All Sub-Directories
+Get_Files <- function(Parent_Directory, Include_Paths) {
+  # Function to list all files in a directory, including files in
+  # sub-directories.
+  require(stringi)
+  File_Path <- as.data.frame(unlist(list.dirs(Parent_Directory)))
+  File_Path <- as.data.frame(unlist(apply(File_Path, 1, function(x) stri_replace_all_fixed(x,
+                                                                                           "/", "\\"))))
+  Files_RPT <- as.data.frame(unlist(apply(File_Path, 1, function(x) list.files(path = x,
+                                                                               include.dirs = FALSE, full.names = Include_Paths))))
+  Files <- apply(Files_RPT, 1, function(x) stri_replace_all_fixed(x,
+                                                                  "/", "\\"))
+  print(paste("Total Files - ", length(Files)))
+  return(Files)
+}
+########################################################Load all Libraries
+library(readr)
+library(stringi)
+library(dplyr)
+library(plyr)
+library(tm)
+library(wordcloud2)
+library(tidytext)
+library(wordspace)
+########################################################Get Bing Sentiments
+bing <- as.data.frame(get_sentiments("bing"))
+########################################################Specify Parent Directory 
+Parent_Directory <- c("C:\\Users\\jhwat\\Documents\\FFA2\\Snips\\KJB\\kjvtxt\\Books")  #Specify parent directory.
+paths<-Get_Files(Parent_Directory, Include_Paths=TRUE)
+
+#######################################################Read all text, tokenize and analyze
+count_text<-function(path){
+bible_data <- tm::PlainTextDocument(readr::read_lines(file=path, progress = interactive()), heading = "KJB",
+                                id = basename(tempfile()),
+                                language = "en", description="Report File")
+  
+bible_data<-scan_tokenizer(bible_data)
+bible_data <- removeWords(bible_data, stopwords("SMART"))
+bible_data <- removeWords(bible_data, stopwords("english"))
+bible_data <- textcnt(bible_data, method = "string", n = 1L)
+bible_data<-data.frame(names=names(bible_data) ,counts = unclass(bible_data), size = nchar(names(bible_data)))
+matc<-bible_data[bible_data[,1] %in% bing[,1],]
+vibe<-bing[bing[,1] %in% matc[,1],]
+colorVec = rep(c('firebrick', 'cornflowerblue'), length.out=nrow(bible_data))
+word_vec<-list(path, bible_data, wordcloud2(bible_data, size = .8, color = colorVec, fontWeight = "bold"), matc, vibe)
+}
+##########################################################Call tokenize function
+word_vec<-lapply(paths, function(x) count_text(x))
+word_vec
